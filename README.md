@@ -2,6 +2,8 @@
 
 A Claude Code skill for building agents with Vercel AI SDK 6.
 
+https://francostan.github.io/ai-sdk-6-skill/
+
 ## Install
 
 ```bash
