@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SDK 6 Skill for Claude Code</title>
+  <meta name="description" content="The definitive AI SDK 6 skill for Claude Code. ToolLoopAgent, human-in-the-loop safety, MCP integration, RAG patterns.">
+  <meta name="keywords" content="ai sdk 6, ai sdk 6 skill, claude code, vercel ai sdk, toolloopagent, mcp, agents">
+  <meta property="og:title" content="AI SDK 6 Skill for Claude Code">
+  <meta property="og:description" content="Expert guidance for building agents with Vercel AI SDK 6">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://francostan.github.io/ai-sdk-6-skill">
+  <link rel="canonical" href="https://francostan.github.io/ai-sdk-6-skill">
+  <style>
+    @font-face {
+      font-family: 'SF Mono';
+      src: local('SF Mono'), local('SFMono-Regular'), local('Menlo');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'SF Mono';
+      src: local('SF Mono Medium'), local('SFMono-Medium'), local('Menlo');
+      font-weight: 500;
+    }
+    @font-face {
+      font-family: 'SF Mono';
+      src: local('SF Mono Bold'), local('SFMono-Bold'), local('Menlo');
+      font-weight: 600;
+    }
+
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #86868b;
+      --border: #d2d2d7;
+      --accent: #ff453a;
+      --terminal-bg: #1d1d1f;
+      --terminal-text: #f5f5f7;
+      --terminal-green: #32d74b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+    }
+
+    header {
+      margin-bottom: 3.5rem;
+      animation: fadeUp 0.5s ease-out;
+    }
+
+    .eyebrow {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    .tagline {
+      font-size: 1.0625rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+    }
+
+    .terminal {
+      background: var(--terminal-bg);
+      border-radius: 10px;
+      margin-bottom: 3.5rem;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
+      animation: fadeUp 0.5s ease-out 0.1s both;
+      position: relative;
+    }
+
+    .terminal-bar {
+      background: #2d2d2d;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .terminal-dot.red { background: #ff5f57; }
+    .terminal-dot.yellow { background: #febc2e; }
+    .terminal-dot.green { background: #28c840; }
+
+    .terminal-body {
+      padding: 1.25rem 1.5rem;
+      padding-right: 4rem;
+    }
+
+    .terminal-line {
+      display: flex;
+      align-items: center;
+    }
+
+    .prompt {
+      color: var(--terminal-green);
+      margin-right: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .terminal-line code {
+      color: var(--terminal-text);
+      font-size: 0.8125rem;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 1.2em;
+      background: var(--terminal-text);
+      margin-left: 1px;
+      animation: blink 1s step-end infinite;
+      vertical-align: text-bottom;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    .copy-btn {
+      position: absolute;
+      right: 1rem;
+      bottom: 1rem;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255,255,255,0.15);
+      color: var(--terminal-text);
+    }
+
+    .copy-btn.copied {
+      color: var(--terminal-green);
+    }
+
+    .copy-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .features {
+      margin-bottom: 3.5rem;
+    }
+
+    .features-header {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .feature-item {
+      padding: 1.125rem 0;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 2rem 1fr;
+      gap: 1rem;
+      align-items: baseline;
+      animation: fadeUp 0.4s ease-out both;
+    }
+
+    .feature-item:nth-child(1) { animation-delay: 0.15s; }
+    .feature-item:nth-child(2) { animation-delay: 0.2s; }
+    .feature-item:nth-child(3) { animation-delay: 0.25s; }
+    .feature-item:nth-child(4) { animation-delay: 0.3s; }
+    .feature-item:nth-child(5) { animation-delay: 0.35s; }
+
+    .feature-num {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .feature-content h3 {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      margin-bottom: 0.125rem;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-content p {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 4rem;
+      animation: fadeUp 0.5s ease-out 0.4s both;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      text-decoration: none;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+
+    .btn-secondary:hover {
+      box-shadow: inset 0 0 0 1px var(--text);
+    }
+
+    footer {
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      animation: fadeUp 0.5s ease-out 0.5s both;
+    }
+
+    footer a {
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    @media (max-width: 540px) {
+      .page { padding: 3rem 1.25rem 2rem; }
+      h1 { font-size: 1.75rem; }
+      .terminal-body { padding: 1rem; }
+      .terminal-line code { font-size: 0.75rem; }
+      .feature-item { grid-template-columns: 1.5rem 1fr; gap: 0.75rem; }
+      .actions { flex-direction: column; }
+      .btn { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <p class="eyebrow">Claude Code Skill</p>
+      <h1>AI SDK <span>6</span></h1>
+      <p class="tagline">Expert guidance for building agents</p>
+    </header>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+      </div>
+      <div class="terminal-body">
+        <div class="terminal-line">
+          <span class="prompt">$</span>
+          <code id="cmd"></code><span class="cursor"></span>
+        </div>
+      </div>
+      <button class="copy-btn" onclick="copyCmd()" aria-label="Copy to clipboard">
+        <svg id="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+        </svg>
+        <svg id="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <section class="features">
+      <p class="features-header">What's Inside</p>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <span class="feature-num">01</span>
+          <div class="feature-content">
+            <h3>ToolLoopAgent</h3>
+            <p>Multi-step workflows with automatic tool loop handling</p>
+          </div>
+        </li>
+        <li class="feature-item">
+          <span class="feature-num">02</span>
+          <div class="feature-content">
+            <h3>Human-in-the-Loop</h3>
+            <p>Safety patterns with needsApproval for destructive ops</p>
+          </div>
+        </li>
+        <li class="feature-item">
+          <span class="feature-num">03</span>
+          <div class="feature-content">
+            <h3>MCP Integration</h3>
+            <p>Connect external tool servers via Model Context Protocol</p>
+          </div>
+        </li>
+        <li class="feature-item">
+          <span class="feature-num">04</span>
+          <div class="feature-content">
+            <h3>RAG with Reranking</h3>
+            <p>Two-stage retrieval for better context quality</p>
+          </div>
+        </li>
+        <li class="feature-item">
+          <span class="feature-num">05</span>
+          <div class="feature-content">
+            <h3>DevTools</h3>
+            <p>Full trace observability and token analytics</p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <div class="actions">
+      <a href="https://github.com/francostan/ai-sdk-6-skill" class="btn btn-primary">View Source</a>
+      <a href="https://github.com/francostan/ai-sdk-6-skill/blob/main/SKILL.md" class="btn btn-secondary">Documentation</a>
+    </div>
+
+    <footer>
+      <p>Built for <a href="https://claude.ai/code">Claude Code</a> by <a href="https://github.com/francostan">francostan</a></p>
+    </footer>
+  </div>
+
+  <script>
+    const cmd = 'npx skills add https://github.com/francostan/ai-sdk-6-skill -g -y';
+    const el = document.getElementById('cmd');
+    let i = 0;
+
+    function type() {
+      if (i < cmd.length) {
+        el.textContent += cmd.charAt(i);
+        i++;
+        setTimeout(type, 25 + Math.random() * 15);
+      }
+    }
+
+    function copyCmd() {
+      navigator.clipboard.writeText(cmd);
+      const btn = document.querySelector('.copy-btn');
+      const copyIcon = document.getElementById('copy-icon');
+      const checkIcon = document.getElementById('check-icon');
+
+      btn.classList.add('copied');
+      copyIcon.style.display = 'none';
+      checkIcon.style.display = 'block';
+
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        copyIcon.style.display = 'block';
+        checkIcon.style.display = 'none';
+      }, 2000);
+    }
+
+    setTimeout(type, 600);
+  </script>
+</body>
+</html>
