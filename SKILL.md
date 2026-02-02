@@ -9,10 +9,9 @@ description: Expert guide for Vercel AI SDK 6 - ToolLoopAgent, safety patterns, 
 
 | Function | What |
 |----------|------|
-| `generateText` | Single LLM call |
-| `generateObject` | Structured JSON output |
+| `generateText` | Single LLM call (use `Output.object()` for structured JSON) |
 | `streamText` | Streaming response |
-| `ToolLoopAgent` | Multi-step agent loop |
+| `ToolLoopAgent` | Multi-step agent loop with `generate()` / `stream()` |
 | `createMCPClient` | External tool servers |
 | `rerank` | RAG relevance scoring |
 
@@ -34,17 +33,39 @@ description: Expert guide for Vercel AI SDK 6 - ToolLoopAgent, safety patterns, 
 The main primitive for multi-step workflows. Automatically handles the "call model → run tools → append results" loop. Defaults to max 20 steps.
 
 ```typescript
-import { ToolLoopAgent, stepCountIs } from 'ai';
+import { ToolLoopAgent, stepCountIs, type InferAgentUIMessage } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
 
 const agent = new ToolLoopAgent({
-  model: 'anthropic/claude-sonnet-4.5',
+  model: anthropic('claude-sonnet-4-5-20250514'),
+  instructions: 'You are a helpful assistant.',  // replaces 'system'
   tools: { getWeather, searchDocs, sendEmail },
-  stopWhen: stepCountIs(10)
+  activeTools: ['getWeather', 'searchDocs'],  // subset of tools active per step
+  stopWhen: stepCountIs(10),
+  toolChoice: 'auto',  // or 'required', 'none', { tool: 'name' }
+  output: Output.object({ schema: mySchema }),  // optional structured output
+  prepareStep: async ({ previousSteps }) => {
+    // dynamically adjust tools/instructions per step
+    return { activeTools: ['sendEmail'] };
+  },
+  onStepFinish: ({ step, usage }) => {
+    console.log('Step completed:', step.type, usage);
+  }
 });
 
+// Generate (blocking)
 const result = await agent.generate({
   prompt: 'Check weather in SF and email me a summary'
 });
+
+// Stream
+const stream = agent.stream({ prompt: 'Check weather in SF' });
+for await (const chunk of stream) {
+  console.log(chunk);
+}
+
+// Type export for UI
+export type MyAgentUIMessage = InferAgentUIMessage<typeof agent>;
 ```
 
 **Best practices:**
@@ -65,7 +86,7 @@ const tools = {
   deleteUser: tool({
     description: 'Permanently delete a user account',
     parameters: z.object({ userId: z.string() }),
-    needsApproval: true,
+    needsApproval: true,  // static
     execute: async ({ userId }) => {
       await db.users.delete(userId);
       return { deleted: true };
@@ -81,7 +102,27 @@ const tools = {
 };
 ```
 
-In your UI/API, check for `approval-requested` state and show confirmation dialog before proceeding.
+**Two-call approval workflow:**
+
+When `needsApproval` returns true, the agent pauses with `tool-approval-request`. Your app must:
+1. Show approval UI to user
+2. Re-call agent with `tool-approval-response` message
+
+```typescript
+// First call - agent requests approval
+const result1 = await agent.generate({ prompt: 'Delete user 123' });
+// result1.finishReason === 'tool-approval-request'
+
+// After user approves in UI, continue with approval response
+const result2 = await agent.generate({
+  messages: [
+    ...result1.messages,
+    { type: 'tool-approval-response', toolCallId: 'xyz', approved: true }
+  ]
+});
+```
+
+In your UI, check for `approval-requested` state and show confirmation dialog before proceeding.
 
 ### 3. MCP Integration
 
@@ -89,6 +130,7 @@ Connect to external Model Context Protocol servers for additional tools.
 
 ```typescript
 import { createMCPClient } from '@ai-sdk/mcp';
+import { anthropic } from '@ai-sdk/anthropic';
 
 const mcp = await createMCPClient({
   transport: { type: 'sse', url: 'https://mcp.example.com/sse' }
@@ -98,7 +140,7 @@ const tools = await mcp.listTools();
 
 // Use in agent
 const agent = new ToolLoopAgent({
-  model: 'anthropic/claude-sonnet-4.5',
+  model: anthropic('claude-sonnet-4-5-20250514'),
   tools: { ...myTools, ...tools }
 });
 ```
@@ -114,32 +156,43 @@ Two-stage retrieval: fetch broad candidate set, then rerank by relevance.
 
 ```typescript
 import { rerank } from 'ai';
+import { cohere } from '@ai-sdk/cohere';
+// or: import { amazonBedrock } from '@ai-sdk/amazon-bedrock';
 
 // Stage 1: Broad vector search
 const candidates = await vectorStore.search(query, { limit: 50 });
 
 // Stage 2: Rerank for relevance
-const ranked = await rerank({
-  model: 'cohere/rerank-v3',  // or bedrock reranker
+const { ranking, rerankedDocuments, originalDocuments } = await rerank({
+  model: cohere.reranking('rerank-v3.5'),
+  // or: amazonBedrock.reranking('cohere.rerank-v3-5:0'),
   query,
-  documents: candidates
+  documents: candidates,
+  topN: 5  // optional: limit results
 });
 
 // Use top results in context
-const context = ranked.slice(0, 5);
+const context = rerankedDocuments;
 ```
+
+**Return structure:**
+- `ranking` - array of `{ documentIndex, relevanceScore }`
+- `rerankedDocuments` - documents sorted by relevance
+- `originalDocuments` - original order preserved
 
 This reduces hallucinations and improves response quality vs naive top-k retrieval.
 
 ### 5. Structured Output
 
-Force agent to return typed JSON:
+Force agent to return typed JSON using `Output.object()` in `generateText`:
 
 ```typescript
-import { Output } from 'ai';
+import { generateText, Output } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 
-const result = await agent.generate({
+const { output } = await generateText({
+  model: anthropic('claude-sonnet-4-5-20250514'),
   prompt: 'Research our top 3 competitors',
   output: Output.object({
     schema: z.object({
@@ -153,8 +206,10 @@ const result = await agent.generate({
   })
 });
 
-// result.output is fully typed
+// output is fully typed
 ```
+
+**Note:** `generateObject()` and `streamObject()` are deprecated in v6. Use `generateText` with `Output.object()` instead.
 
 ### 6. Provider-Native Tools
 
@@ -186,15 +241,17 @@ Use built-in tools when available - they're optimized and don't count against yo
 Main agent delegates to specialized sub-agents via tools:
 
 ```typescript
+import { anthropic } from '@ai-sdk/anthropic';
+
 const orchestrator = new ToolLoopAgent({
-  model: 'anthropic/claude-sonnet-4.5',
+  model: anthropic('claude-sonnet-4-5-20250514'),
   tools: {
     research: tool({
       description: 'Deep research on a topic',
       parameters: z.object({ topic: z.string() }),
       execute: async ({ topic }) => {
         const researcher = new ToolLoopAgent({
-          model: 'anthropic/claude-sonnet-4.5',
+          model: anthropic('claude-sonnet-4-5-20250514'),
           tools: { webSearch, readPage, summarize }
         });
         return researcher.generate({ prompt: `Research: ${topic}` });
@@ -277,7 +334,7 @@ Wrap model with middleware for full trace inspection:
 import { devToolsMiddleware } from '@ai-sdk/devtools';
 import { anthropic } from '@ai-sdk/anthropic';
 
-const model = devToolsMiddleware(anthropic('claude-sonnet-4.5'));
+const model = devToolsMiddleware(anthropic('claude-sonnet-4-5-20250514'));
 
 // Run DevTools server
 // npx @ai-sdk/devtools
@@ -329,7 +386,17 @@ npx @ai-sdk/codemod v6
 - `streamUI` usage (evolved for agentic patterns)
 - Any direct provider API calls
 
-**Key changes:**
+**Key API changes:**
+
+| v5 | v6 |
+|----|-----|
+| `system: '...'` | `instructions: '...'` |
+| `generateObject()` | `generateText()` + `Output.object()` |
+| `streamObject()` | `streamText()` + `Output.object()` |
+| `convertToCoreMessages()` | `convertToModelMessages()` (now async) |
+| `usage.totalTokens` | `usage.inputTokens + usage.outputTokens` |
+
+**Structural changes:**
 - `ToolLoopAgent` replaces manual tool loops
 - `needsApproval` is now built-in (no custom implementation needed)
 - `rerank` is a first-class function
